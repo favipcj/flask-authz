@@ -1,5 +1,7 @@
 """flask-casbin: Flask module for using Casbin with flask apps
 """
+import types
+
 import casbin
 from flask import request, jsonify
 from functools import wraps
@@ -17,7 +19,7 @@ class CasbinEnforcer:
 
     e = None
 
-    def __init__(self, app=None, adapter=None, watcher=None):
+    def __init__(self, app=None, adapter=None, watcher=None, task_prerun=None):
         """
         Args:
             app (object): Flask App object to get Casbin Model
@@ -29,6 +31,7 @@ class CasbinEnforcer:
         self.watcher = watcher
         self._owner_loader = None
         self.user_name_headers = None
+        self.tasks_prerun = task_prerun if task_prerun else []
         if self.app is not None:
             self.init_app(self.app)
 
@@ -63,6 +66,10 @@ class CasbinEnforcer:
     def enforcer(self, func, delimiter=","):
         @wraps(func)
         def wrapper(*args, **kwargs):
+            if self.tasks_prerun:
+                for tprerun in self.tasks_prerun:
+                    if isinstance(tprerun, types.FunctionType):
+                        tprerun()
             if self.e.watcher and self.e.watcher.should_reload():
                 self.e.watcher.update_callback()
             # String used to hold the owners user name for audit logging
